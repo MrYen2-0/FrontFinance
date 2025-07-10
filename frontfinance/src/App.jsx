@@ -1,34 +1,58 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from '@/context/AuthContext'
+import ProtectedRoute from '@/components/common/ProtectedRoute'
+import PublicRoute from '@/components/common/PublicRoute'
+import Layout from '@/components/layout/Layout'
+
+// Auth Pages
+import Login from '@/pages/auth/Login'
+import Register from '@/pages/auth/Register'
+
+// Main Pages
+import Dashboard from '@/pages/dashboard/Dashboard'
+import Analytics from '@/pages/analytics/Analytics'
+import Budgets from '@/pages/budgets/Budgets'
+import Reports from '@/pages/reports/Reports'
+import Goals from '@/pages/goals/Goals'
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <AuthProvider>
+      <Router>
+        <div className="App">
+          <Routes>
+            {/* Rutas públicas */}
+            <Route path="/login" element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            } />
+            <Route path="/register" element={
+              <PublicRoute>
+                <Register />
+              </PublicRoute>
+            } />
+
+            {/* Rutas protegidas */}
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="analytics" element={<Analytics />} />
+              <Route path="budgets" element={<Budgets />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="goals" element={<Goals />} />
+            </Route>
+
+            {/* Ruta por defecto */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </div>
+      </Router>
+    </AuthProvider>
   )
 }
 
