@@ -1,0 +1,113 @@
+/* Actualizar estas clases en el archivo existente */
+
+.reports-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+  background: var(--background-card);
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  flex-wrap: wrap;
+  gap: 16px;
+  border: 1px solid var(--border);
+}
+
+.control-select {
+  padding: 8px 12px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--input-bg);
+}
+
+.metric-card {
+  background: var(--background-card);
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  text-align: center;
+  border: 1px solid var(--border);
+}
+
+.simple-chart-section {
+  background: var(--background-card);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.chart-explanation {
+  padding: 16px 24px;
+  background: var(--background-secondary);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.simple-summary {
+  background: var(--background-card);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 24px;
+  border: 1px solid var(--border);
+}
+
+.summary-point {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--background-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.report-tabs {
+  display: flex;
+  background: var(--background-card);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.tab-btn:hover {
+  background: var(--background-secondary);
+  color: var(--primary-color);
+}
+
+.report-content {
+  background: var(--background-card);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.chart-section {
+  background: var(--background-secondary);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.chart-section.full-width {
+  grid-column: 1 / -1;
+  background: var(--background-card);
+  padding: 0 24px 24px;
+}
+
+.chart-header {
+  padding: 16px 20px;
+  background: var(--background-card);
+  border-bottom: 1px solid var(--border);
+}
