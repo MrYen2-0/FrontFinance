@@ -1,5 +1,5 @@
+// back/models/User.js
 const { DataTypes } = require('sequelize');
-const bcrypt = require('bcryptjs');
 const sequelize = require('../config/database');
 
 const User = sequelize.define('User', {
@@ -26,10 +26,7 @@ const User = sequelize.define('User', {
   },
   password: {
     type: DataTypes.STRING(255),
-    allowNull: false,
-    validate: {
-      len: [6, 255]
-    }
+    allowNull: false
   },
   avatar: {
     type: DataTypes.STRING(255),
@@ -40,19 +37,13 @@ const User = sequelize.define('User', {
     defaultValue: true
   }
 }, {
-  tableName: 'users',
-  hooks: {
-    beforeCreate: async (user) => {
-      if (user.password) {
-        const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(user.password, salt);
-      }
-    }
-  }
+  tableName: 'users'
+  // Removemos el hook porque no está funcionando correctamente
 });
 
 // Método para verificar contraseña
 User.prototype.validatePassword = async function(password) {
+  const bcrypt = require('bcryptjs');
   return await bcrypt.compare(password, this.password);
 };
 

@@ -1,5 +1,6 @@
 const API_BASE_URL = 'http://localhost:5000/api';
 
+/// front/src/services/api.js
 // Función helper para hacer requests
 const apiRequest = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
@@ -15,13 +16,23 @@ const apiRequest = async (endpoint, options = {}) => {
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
   
-  if (!response.ok) {
-    if (response.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
-    }
-    throw new Error(`API Error: ${response.statusText}`);
+  // En api.js, modifica la función para devolver un error más descriptivo:
+if (!response.ok) {
+  let errorMessage = `API Error: ${response.statusText}`
+  try {
+    const errorData = await response.json()
+    errorMessage = errorData.message || errorMessage
+  } catch (e) {
+    // Si no se puede parsear el error, usar el mensaje por defecto
   }
+  
+  if (response.status === 401 && endpoint !== '/auth/profile') {
+    localStorage.removeItem('token')
+    window.location.href = '/login'
+  }
+  
+  throw new Error(errorMessage)
+}
   
   return response.json();
 };

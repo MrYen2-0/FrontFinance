@@ -1,11 +1,10 @@
+// front/src/components/Goals/SavingsGoals.jsx
 import { useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { 
   Target, 
   Plus, 
   Trophy, 
-  Star, 
-  Award, 
   Calendar,
   DollarSign,
   Gift
@@ -13,7 +12,7 @@ import {
 import './Goals.css'
 
 function SavingsGoals() {
-  const { goals, addGoal, updateGoalProgress } = useApp()
+  const { goals = [], addGoal, updateGoalProgress } = useApp()
   const [showNewGoal, setShowNewGoal] = useState(false)
   const [newGoal, setNewGoal] = useState({
     name: '',
@@ -21,15 +20,6 @@ function SavingsGoals() {
     deadline: '',
     category: 'Ahorro'
   })
-
-  const badges = [
-    { id: 1, name: 'Primer Ahorro', icon: Star, earned: true, description: 'Completó su primera meta' },
-    { id: 2, name: 'Ahorrador Constante', icon: Award, earned: true, description: '30 días consecutivos ahorrando' },
-    { id: 3, name: 'Meta Grande', icon: Trophy, earned: true, description: 'Meta de más de $10,000' },
-    { id: 4, name: 'Velocista', icon: Star, earned: false, description: 'Meta completada antes del tiempo' },
-    { id: 5, name: 'Disciplinado', icon: Award, earned: true, description: 'Sin gastar del ahorro por 60 días' },
-    { id: 6, name: 'Campeón', icon: Trophy, earned: false, description: '5 metas completadas' }
-  ]
 
   const challenges = [
     {
@@ -54,21 +44,31 @@ function SavingsGoals() {
     }
   ]
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    addGoal({
-      ...newGoal,
-      target: parseFloat(newGoal.target)
-    })
-    setNewGoal({ name: '', target: '', deadline: '', category: 'Ahorro' })
-    setShowNewGoal(false)
+    try {
+      await addGoal({
+        name: newGoal.name,
+        target_amount: parseFloat(newGoal.target),
+        current_amount: 0,
+        deadline: newGoal.deadline,
+        category: newGoal.category
+      })
+      setNewGoal({ name: '', target: '', deadline: '', category: 'Ahorro' })
+      setShowNewGoal(false)
+    } catch (error) {
+      console.error('Error al crear meta:', error)
+    }
   }
 
   const getProgressPercentage = (current, target) => {
-    return Math.min((current / target) * 100, 100)
+    const currentVal = parseFloat(current) || 0
+    const targetVal = parseFloat(target) || 1
+    return Math.min((currentVal / targetVal) * 100, 100)
   }
 
   const getDaysLeft = (deadline) => {
+    if (!deadline) return 0
     const today = new Date()
     const endDate = new Date(deadline)
     const diffTime = endDate - today
@@ -76,10 +76,26 @@ function SavingsGoals() {
     return diffDays > 0 ? diffDays : 0
   }
 
-  // Calcular estadísticas simples
-  const totalAhorrado = goals.reduce((sum, goal) => sum + goal.current, 0)
-  const metasCompletadas = goals.filter(g => g.current >= g.target).length
-  const badgesGanados = badges.filter(b => b.earned).length
+  // Calcular estadísticas simples con validación
+  const totalAhorrado = goals.reduce((sum, goal) => {
+    const current = parseFloat(goal.current || goal.current_amount) || 0
+    return sum + current
+  }, 0)
+  
+  const metasCompletadas = goals.filter(g => {
+    const current = parseFloat(g.current || g.current_amount) || 0
+    const target = parseFloat(g.target || g.target_amount) || 1
+    return current >= target
+  }).length
+
+  // Función helper para formatear moneda
+  const formatCurrency = (value) => {
+    const numValue = parseFloat(value) || 0
+    return numValue.toLocaleString('es-ES', { 
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0 
+    })
+  }
 
   return (
     <div className="goals-container">
@@ -107,7 +123,7 @@ function SavingsGoals() {
             <DollarSign size={24} />
           </div>
           <div className="stat-info">
-            <h3>${totalAhorrado.toLocaleString()}</h3>
+            <h3>${formatCurrency(totalAhorrado)}</h3>
             <p>Total ahorrado</p>
           </div>
         </div>
@@ -118,15 +134,6 @@ function SavingsGoals() {
           <div className="stat-info">
             <h3>{metasCompletadas}</h3>
             <p>Metas completadas</p>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">
-            <Award size={24} />
-          </div>
-          <div className="stat-info">
-            <h3>{badgesGanados}</h3>
-            <p>Badges ganados</p>
           </div>
         </div>
         <div className="stat-card">
@@ -185,157 +192,129 @@ function SavingsGoals() {
         </div>
       </div>
 
-      {/* Badges */}
-      <div className="badges-section">
-        <div className="section-header">
-          <h2>Colección de Badges</h2>
-          <span className="badge-count">{badges.filter(b => b.earned).length}/{badges.length}</span>
-        </div>
-        <div className="badges-grid">
-          {badges.map(badge => (
-            <div key={badge.id} className={`badge-item ${badge.earned ? 'earned' : 'locked'}`}>
-              <div className="badge-icon">
-                <badge.icon size={24} />
-              </div>
-              <h4>{badge.name}</h4>
-              <p>{badge.description}</p>
-              {!badge.earned && <div className="badge-overlay">🔒</div>}
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Metas actuales */}
       <div className="goals-section">
         <div className="section-header">
           <h2>Mis Metas</h2>
         </div>
         <div className="goals-grid">
-          {goals.map(goal => {
-            const progress = getProgressPercentage(goal.current, goal.target)
-            const daysLeft = getDaysLeft(goal.deadline)
-            const isCompleted = goal.current >= goal.target
-            
-            return (
-              <div key={goal.id} className={`goal-card ${isCompleted ? 'completed' : ''}`}>
-                <div className="goal-header">
-                  <div className="goal-info">
-                    <h3>{goal.name}</h3>
-                    <span className="goal-category">{goal.category}</span>
-                  </div>
-                  {isCompleted && (
-                    <div className="completion-badge">
-                      <Trophy size={20} />
+          {goals.length > 0 ? (
+            goals.map(goal => {
+              const current = parseFloat(goal.current || goal.current_amount) || 0
+              const target = parseFloat(goal.target || goal.target_amount) || 1
+              const progress = getProgressPercentage(current, target)
+              const daysLeft = getDaysLeft(goal.deadline)
+              const isCompleted = current >= target
+              
+              return (
+                <div key={goal.id} className={`goal-card ${isCompleted ? 'completed' : ''}`}>
+                  <div className="goal-header">
+                    <div className="goal-info">
+                      <h3>{goal.name}</h3>
+                      <span className="goal-category">{goal.category}</span>
                     </div>
-                  )}
-                </div>
-
-                <div className="goal-progress">
-                  <div className="progress-amounts">
-                    <span className="current">${goal.current.toLocaleString()}</span>
-                    <span className="target">de ${goal.target.toLocaleString()}</span>
+                    {isCompleted && (
+                      <div className="completion-badge">
+                        <Trophy size={20} />
+                      </div>
+                    )}
                   </div>
-                  <div className="progress-bar-container">
-                    <div className="progress-bar">
-                      <div 
-                        className="progress-fill"
-                        style={{ width: `${progress}%` }}
-                      ></div>
+
+                  <div className="goal-progress">
+                    <div className="progress-amounts">
+                      <span className="current">${formatCurrency(current)}</span>
+                      <span className="target">de ${formatCurrency(target)}</span>
                     </div>
-                    <span className="progress-percentage">{progress.toFixed(1)}%</span>
+                    <div className="progress-bar-container">
+                      <div className="progress-bar">
+                        <div 
+                          className="progress-fill"
+                          style={{ width: `${progress}%` }}
+                        ></div>
+                      </div>
+                      <span className="progress-percentage">{progress.toFixed(0)}%</span>
+                    </div>
+                  </div>
+
+                  <div className="goal-footer">
+                    <div className="deadline">
+                      <Calendar size={16} />
+                      <span>{daysLeft} días restantes</span>
+                    </div>
+                    {!isCompleted && (
+                      <button 
+                        className="btn btn-sm btn-primary"
+                        onClick={() => {
+                          // Aquí puedes agregar lógica para actualizar el progreso
+                          console.log('Agregar fondos a:', goal.name)
+                        }}
+                      >
+                        Agregar Fondos
+                      </button>
+                    )}
                   </div>
                 </div>
-
-                <div className="goal-details">
-                  <div className="detail-item">
-                    <Calendar size={16} />
-                    <span>{daysLeft > 0 ? `${daysLeft} días restantes` : 'Vencido'}</span>
-                  </div>
-                  <div className="detail-item">
-                    <DollarSign size={16} />
-                    <span>${(goal.target - goal.current).toLocaleString()} faltante</span>
-                  </div>
-                </div>
-
-                {!isCompleted && (
-                  <div className="goal-actions">
-                    <button 
-                      className="btn btn-primary btn-sm"
-                      onClick={() => {
-                        const amount = prompt('¿Cuánto quieres agregar a esta meta?')
-                        if (amount && !isNaN(amount)) {
-                          updateGoalProgress(goal.id, goal.current + parseFloat(amount))
-                        }
-                      }}
-                    >
-                      <Plus size={14} />
-                      Agregar Dinero
-                    </button>
-                  </div>
-                )}
-
-                {isCompleted && (
-                  <div className="completion-message">
-                    <Star size={16} />
-                    <span>¡Meta completada! 🎉</span>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+              )
+            })
+          ) : (
+            <div className="no-goals">
+              <p>No hay metas creadas aún</p>
+              <button 
+                className="btn btn-primary"
+                onClick={() => setShowNewGoal(true)}
+              >
+                Crear primera meta
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Modal para nueva meta */}
+      {/* Modal Nueva Meta */}
       {showNewGoal && (
         <div className="modal-overlay" onClick={() => setShowNewGoal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Nueva Meta de Ahorro</h2>
-              <button 
-                className="close-btn"
-                onClick={() => setShowNewGoal(false)}
-              >
-                ×
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="goal-form">
-              <div className="input-group">
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Nueva Meta de Ahorro</h2>
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
                 <label htmlFor="goalName">Nombre de la meta</label>
                 <input
                   id="goalName"
                   type="text"
                   value={newGoal.name}
                   onChange={(e) => setNewGoal({...newGoal, name: e.target.value})}
-                  placeholder="Ej: Vacaciones de verano"
+                  placeholder="Ej: Viaje a Europa"
                   required
                 />
               </div>
 
-              <div className="input-group">
-                <label htmlFor="goalTarget">Cantidad objetivo</label>
+              <div className="form-group">
+                <label htmlFor="goalTarget">Monto objetivo ($)</label>
                 <input
                   id="goalTarget"
                   type="number"
                   value={newGoal.target}
                   onChange={(e) => setNewGoal({...newGoal, target: e.target.value})}
-                  placeholder="5000"
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
                   required
                 />
               </div>
 
-              <div className="input-group">
+              <div className="form-group">
                 <label htmlFor="goalDeadline">Fecha límite</label>
                 <input
                   id="goalDeadline"
                   type="date"
                   value={newGoal.deadline}
                   onChange={(e) => setNewGoal({...newGoal, deadline: e.target.value})}
+                  min={new Date().toISOString().split('T')[0]}
                   required
                 />
               </div>
 
-              <div className="input-group">
+              <div className="form-group">
                 <label htmlFor="goalCategory">Categoría</label>
                 <select
                   id="goalCategory"

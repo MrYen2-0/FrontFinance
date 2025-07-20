@@ -11,7 +11,8 @@ function Register() {
     password: '',
     confirmPassword: ''
   })
-  const { login } = useApp()
+  const [error, setError] = useState('')
+  const { register, isLoading } = useApp()
 
   const handleChange = (e) => {
     setFormData({
@@ -20,19 +21,25 @@ function Register() {
     })
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    setError('')
+    
     if (formData.password !== formData.confirmPassword) {
-      alert('Las contraseñas no coinciden')
+      setError('Las contraseñas no coinciden')
       return
     }
     
-    // Simulamos registro exitoso
-    login({
-      id: 1,
-      name: formData.name,
-      email: formData.email
-    })
+    try {
+      await register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password
+      })
+      // El contexto se encarga de la redirección
+    } catch (error) {
+      setError(error.message || 'Error al registrar usuario')
+    }
   }
 
   return (
@@ -46,6 +53,12 @@ function Register() {
           <h2>Crear Cuenta</h2>
           <p>Únete y toma control de tus finanzas</p>
         </div>
+
+        {error && (
+          <div className="error-message">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="input-group">
@@ -61,6 +74,7 @@ function Register() {
               onChange={handleChange}
               placeholder="Tu nombre completo"
               required
+              disabled={isLoading}
             />
           </div>
 
@@ -77,6 +91,7 @@ function Register() {
               onChange={handleChange}
               placeholder="tu@email.com"
               required
+              disabled={isLoading}
             />
           </div>
 
@@ -91,8 +106,9 @@ function Register() {
               type="password"
               value={formData.password}
               onChange={handleChange}
-              placeholder="••••••••"
+              placeholder="Mínimo 6 caracteres"
               required
+              disabled={isLoading}
             />
           </div>
 
@@ -107,14 +123,25 @@ function Register() {
               type="password"
               value={formData.confirmPassword}
               onChange={handleChange}
-              placeholder="••••••••"
+              placeholder="Repite tu contraseña"
               required
+              disabled={isLoading}
             />
           </div>
 
-          <button type="submit" className="btn btn-primary auth-btn">
-            <UserPlus size={18} />
-            Crear Cuenta
+          <button 
+            type="submit" 
+            className="btn btn-primary auth-btn"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>Creando cuenta...</>
+            ) : (
+              <>
+                <UserPlus size={18} />
+                Crear Cuenta
+              </>
+            )}
           </button>
         </form>
 
@@ -122,7 +149,7 @@ function Register() {
           <p>
             ¿Ya tienes cuenta? 
             <Link to="/login" className="auth-link">
-              Inicia sesión
+              Inicia sesión aquí
             </Link>
           </p>
         </div>

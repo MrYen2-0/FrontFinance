@@ -456,6 +456,22 @@
   margin-top: 24px;
 }
 
+/* Agregar a Goals.css */
+.no-goals {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 107, 53, 0.3);
+}
+
+.no-goals p {
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 20px;
+  font-size: 16px;
+}
+
 @media (max-width: 768px) {
   .goals-header {
     flex-direction: column;

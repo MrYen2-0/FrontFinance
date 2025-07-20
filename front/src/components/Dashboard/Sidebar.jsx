@@ -1,3 +1,4 @@
+// front/src/components/Dashboard/Sidebar.jsx
 import { NavLink, useLocation } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { 
@@ -9,6 +10,7 @@ import {
   LogOut,
   User
 } from 'lucide-react'
+import './Sidebar.css'  // AGREGAR ESTA LÍNEA
 
 function Sidebar() {
   const { user, logout } = useApp()

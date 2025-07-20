@@ -7,16 +7,19 @@ import './AuthForm.css'
 function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const { login } = useApp()
+  const [error, setError] = useState('')
+  const { login, isLoading } = useApp()
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    // Simulamos login exitoso
-    login({
-      id: 1,
-      name: 'Usuario Demo',
-      email: email
-    })
+    setError('')
+    
+    try {
+      await login({ email, password })
+      // El contexto se encarga de la redirección
+    } catch (error) {
+      setError(error.message || 'Error al iniciar sesión')
+    }
   }
 
   return (
@@ -31,6 +34,12 @@ function Login() {
           <p>Accede a tu asistente digital de finanzas</p>
         </div>
 
+        {error && (
+          <div className="error-message">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="input-group">
             <label htmlFor="email">
@@ -44,6 +53,7 @@ function Login() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tu@email.com"
               required
+              disabled={isLoading}
             />
           </div>
 
@@ -59,12 +69,23 @@ function Login() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
+              disabled={isLoading}
             />
           </div>
 
-          <button type="submit" className="btn btn-primary auth-btn">
-            <LogIn size={18} />
-            Iniciar Sesión
+          <button 
+            type="submit" 
+            className="btn btn-primary auth-btn"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>Iniciando sesión...</>
+            ) : (
+              <>
+                <LogIn size={18} />
+                Iniciar Sesión
+              </>
+            )}
           </button>
         </form>
 
