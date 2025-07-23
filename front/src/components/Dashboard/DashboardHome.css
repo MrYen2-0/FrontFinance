@@ -246,6 +246,7 @@
   margin-bottom: 20px;
 }
 
+/* Agregar a DashboardHome.css */
 .action-btn {
   display: flex;
   align-items: center;
@@ -262,12 +263,32 @@
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+  width: 100%;
 }
 
 .action-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 107, 53, 0.5);
-  background: linear-gradient(135deg, #ff8c42 0%, #ff6b35 100%);
+  box-shadow: 0 6px 20px rgba(255, 107, 53, 0.4);
+}
+
+.action-btn.income-btn {
+  background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+
+.action-btn.income-btn:hover {
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+}
+
+.action-btn.expense-btn {
+  background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+  border: 2px solid #ff6b35;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.action-btn.expense-btn:hover {
+  box-shadow: 0 6px 20px rgba(255, 107, 53, 0.3);
+  border-color: #ff8c42;
 }
 
 .action-btn:active {

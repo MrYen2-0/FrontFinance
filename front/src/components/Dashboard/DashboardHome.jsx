@@ -1,5 +1,6 @@
 // front/src/components/Dashboard/DashboardHome.jsx
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom' // Agregar esta importación
 import { useApp } from '../../context/AppContext'
 import { api } from '../../services/api'
 import { 
@@ -13,6 +14,7 @@ import {
 import './DashboardHome.css'
 
 function DashboardHome() {
+  const navigate = useNavigate() // Agregar el hook de navegación
   const { user, transactions = [], goals = [], budgets = [], addTransaction } = useApp()
   const [dashboardData, setDashboardData] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -62,6 +64,7 @@ function DashboardHome() {
       loadDashboardData()
     } catch (error) {
       console.error('Error al crear transacción:', error)
+      alert('Error al crear la transacción')
     }
   }
 
@@ -69,6 +72,11 @@ function DashboardHome() {
     setTransactionType(type)
     setNewTransaction({ ...newTransaction, type })
     setShowTransactionModal(true)
+  }
+
+  // Función para navegar a las metas
+  const navigateToGoals = () => {
+    navigate('/dashboard/goals')
   }
 
   if (isLoading) {
@@ -91,7 +99,11 @@ function DashboardHome() {
   const balance = totalIncome - totalExpenses
   
   const completedGoals = Array.isArray(goals) 
-    ? goals.filter(g => g && g.current >= g.target).length 
+    ? goals.filter(g => {
+        const current = parseFloat(g.current || g.current_amount) || 0
+        const target = parseFloat(g.target || g.target_amount) || 1
+        return current >= target
+      }).length 
     : 0
   
   const recentTransactions = Array.isArray(transactions) 
@@ -115,7 +127,7 @@ function DashboardHome() {
             <TrendingUp />
           </div>
           <div className="stat-content">
-            <p className="stat-label">Ingresos Totales</p>
+            <p className="stat-label">INGRESOS TOTALES</p>
             <h3 className="stat-value">${totalIncome.toFixed(2)}</h3>
           </div>
         </div>
@@ -125,7 +137,7 @@ function DashboardHome() {
             <TrendingDown />
           </div>
           <div className="stat-content">
-            <p className="stat-label">Gastos Totales</p>
+            <p className="stat-label">GASTOS TOTALES</p>
             <h3 className="stat-value">${totalExpenses.toFixed(2)}</h3>
           </div>
         </div>
@@ -135,7 +147,7 @@ function DashboardHome() {
             <DollarSign />
           </div>
           <div className="stat-content">
-            <p className="stat-label">Balance</p>
+            <p className="stat-label">BALANCE</p>
             <h3 className="stat-value">${balance.toFixed(2)}</h3>
           </div>
         </div>
@@ -145,7 +157,7 @@ function DashboardHome() {
             <Target />
           </div>
           <div className="stat-content">
-            <p className="stat-label">Metas Completadas</p>
+            <p className="stat-label">METAS COMPLETADAS</p>
             <h3 className="stat-value">{completedGoals} de {goals.length}</h3>
           </div>
         </div>
@@ -192,7 +204,7 @@ function DashboardHome() {
           </button>
           <button 
             className="action-btn"
-            onClick={() => window.location.href = '/dashboard/goals'}
+            onClick={navigateToGoals}
           >
             <Target size={16} />
             Nueva Meta
