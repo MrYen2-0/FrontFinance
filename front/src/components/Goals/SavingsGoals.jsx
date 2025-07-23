@@ -1,32 +1,155 @@
-// front/src/components/Goals/SavingsGoals.jsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
+import { api } from '../../services/api'
 import { 
   Target, 
   Plus, 
   Trophy, 
+  Star, 
+  Award, 
   Calendar,
   DollarSign,
-  Gift
+  Gift,
+  Edit3,
+  Trash2,
+  TrendingUp,
+  CheckCircle,
+  Clock,
+  RefreshCw
 } from 'lucide-react'
+import moment from 'moment'
 import './Goals.css'
 
 function SavingsGoals() {
-  const { goals = [], addGoal, updateGoalProgress } = useApp()
+  const { user } = useApp()
+  const [goals, setGoals] = useState([])
+  const [goalStats, setGoalStats] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [showNewGoal, setShowNewGoal] = useState(false)
+  const [showAddFunds, setShowAddFunds] = useState(null)
+  const [addAmount, setAddAmount] = useState('')
+  
   const [newGoal, setNewGoal] = useState({
     name: '',
-    target: '',
+    description: '',
+    target_amount: '',
     deadline: '',
-    category: 'Ahorro'
+    category: 'Ahorro',
+    priority: 3
   })
+
+  // Cargar datos cuando el componente se monta
+  useEffect(() => {
+    loadGoalsData()
+  }, [])
+
+  const loadGoalsData = async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const [goalsResponse, statsResponse] = await Promise.all([
+        api.getGoals(),
+        api.getGoalStats()
+      ])
+      
+      setGoals(goalsResponse.goals || [])
+      setGoalStats(statsResponse)
+    } catch (error) {
+      console.error('Error cargando metas:', error)
+      setError('Error al cargar las metas')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleCreateGoal = async (e) => {
+    e.preventDefault()
+    try {
+      const goalData = {
+        ...newGoal,
+        target_amount: parseFloat(newGoal.target_amount),
+        priority: parseInt(newGoal.priority)
+      }
+      
+      await api.createGoal(goalData)
+      
+      // Resetear formulario y cerrar modal
+      setNewGoal({
+        name: '',
+        description: '',
+        target_amount: '',
+        deadline: '',
+        category: 'Ahorro',
+        priority: 3
+      })
+      setShowNewGoal(false)
+      
+      // Recargar datos
+      await loadGoalsData()
+    } catch (error) {
+      console.error('Error creando meta:', error)
+      setError('Error al crear la meta')
+    }
+  }
+
+  const handleAddFunds = async (goalId) => {
+    if (!addAmount || isNaN(addAmount) || parseFloat(addAmount) <= 0) {
+      alert('Por favor ingresa un monto válido')
+      return
+    }
+
+    try {
+      const goal = goals.find(g => g.id === goalId)
+      const newAmount = parseFloat(goal.current_amount) + parseFloat(addAmount)
+      
+      await api.updateGoalProgress(goalId, newAmount)
+      
+      // Recargar datos
+      await loadGoalsData()
+      
+      // Resetear y cerrar modal
+      setAddAmount('')
+      setShowAddFunds(null)
+      
+      // Mostrar mensaje de éxito
+      if (newAmount >= parseFloat(goal.target_amount)) {
+        alert('¡Felicidades! Has completado tu meta 🎉')
+      }
+    } catch (error) {
+      console.error('Error actualizando progreso:', error)
+      setError('Error al agregar fondos')
+    }
+  }
+
+  const getProgressPercentage = (current, target) => {
+    return Math.min((parseFloat(current) / parseFloat(target)) * 100, 100)
+  }
+
+  const getDaysLeft = (deadline) => {
+    const days = moment(deadline).diff(moment(), 'days')
+    return Math.max(days, 0)
+  }
+
+  const formatCurrency = (amount) => {
+    return `$${parseFloat(amount).toLocaleString()}`
+  }
+
+  const badges = [
+    { id: 1, name: 'Primer Ahorro', icon: Star, earned: goals.length > 0, description: 'Creó su primera meta' },
+    { id: 2, name: 'Ahorrador Constante', icon: Award, earned: (goalStats?.totalSaved || 0) > 1000, description: 'Más de $1,000 ahorrados' },
+    { id: 3, name: 'Meta Grande', icon: Trophy, earned: goals.some(g => g.target_amount >= 10000), description: 'Meta de más de $10,000' },
+    { id: 4, name: 'Velocista', icon: Star, earned: goals.some(g => g.isCompleted), description: 'Meta completada' },
+    { id: 5, name: 'Disciplinado', icon: Award, earned: goals.length >= 3, description: 'Más de 3 metas activas' },
+    { id: 6, name: 'Campeón', icon: Trophy, earned: (goalStats?.completedGoals || 0) >= 5, description: '5 metas completadas' }
+  ]
 
   const challenges = [
     {
       id: 1,
       title: 'Desafío Semanal',
       description: 'Ahorra $200 esta semana',
-      progress: 150,
+      progress: Math.min((goalStats?.totalSaved || 0) * 0.1, 200),
       target: 200,
       reward: 'Badge especial',
       timeLeft: '3 días',
@@ -34,67 +157,39 @@ function SavingsGoals() {
     },
     {
       id: 2,
-      title: 'Mes sin Caprichos',
-      description: 'No gastes en entretenimiento por 30 días',
-      progress: 18,
-      target: 30,
+      title: 'Meta de Consistencia',
+      description: 'Mantén 3 metas activas',
+      progress: Math.min(goals.length, 3),
+      target: 3,
       reward: 'Badge de Disciplina',
-      timeLeft: '12 días',
-      difficulty: 'Difícil'
+      timeLeft: '∞',
+      difficulty: 'Medio'
     }
   ]
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    try {
-      await addGoal({
-        name: newGoal.name,
-        target_amount: parseFloat(newGoal.target),
-        current_amount: 0,
-        deadline: newGoal.deadline,
-        category: newGoal.category
-      })
-      setNewGoal({ name: '', target: '', deadline: '', category: 'Ahorro' })
-      setShowNewGoal(false)
-    } catch (error) {
-      console.error('Error al crear meta:', error)
-    }
+  if (isLoading) {
+    return (
+      <div className="goals-container">
+        <div className="loading-state">
+          <RefreshCw size={32} className="spinning" />
+          <p>Cargando metas...</p>
+        </div>
+      </div>
+    )
   }
 
-  const getProgressPercentage = (current, target) => {
-    const currentVal = parseFloat(current) || 0
-    const targetVal = parseFloat(target) || 1
-    return Math.min((currentVal / targetVal) * 100, 100)
-  }
-
-  const getDaysLeft = (deadline) => {
-    if (!deadline) return 0
-    const today = new Date()
-    const endDate = new Date(deadline)
-    const diffTime = endDate - today
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    return diffDays > 0 ? diffDays : 0
-  }
-
-  // Calcular estadísticas simples con validación
-  const totalAhorrado = goals.reduce((sum, goal) => {
-    const current = parseFloat(goal.current || goal.current_amount) || 0
-    return sum + current
-  }, 0)
-  
-  const metasCompletadas = goals.filter(g => {
-    const current = parseFloat(g.current || g.current_amount) || 0
-    const target = parseFloat(g.target || g.target_amount) || 1
-    return current >= target
-  }).length
-
-  // Función helper para formatear moneda
-  const formatCurrency = (value) => {
-    const numValue = parseFloat(value) || 0
-    return numValue.toLocaleString('es-ES', { 
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0 
-    })
+  if (error) {
+    return (
+      <div className="goals-container">
+        <div className="error-state">
+          <h3>Error al cargar metas</h3>
+          <p>{error}</p>
+          <button className="btn btn-primary" onClick={loadGoalsData}>
+            Intentar de nuevo
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -123,7 +218,7 @@ function SavingsGoals() {
             <DollarSign size={24} />
           </div>
           <div className="stat-info">
-            <h3>${formatCurrency(totalAhorrado)}</h3>
+            <h3>{formatCurrency(goalStats?.totalSaved || 0)}</h3>
             <p>Total ahorrado</p>
           </div>
         </div>
@@ -132,8 +227,17 @@ function SavingsGoals() {
             <Trophy size={24} />
           </div>
           <div className="stat-info">
-            <h3>{metasCompletadas}</h3>
+            <h3>{goalStats?.completedGoals || 0}</h3>
             <p>Metas completadas</p>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon">
+            <Award size={24} />
+          </div>
+          <div className="stat-info">
+            <h3>{badges.filter(b => b.earned).length}</h3>
+            <p>Badges ganados</p>
           </div>
         </div>
         <div className="stat-card">
@@ -141,7 +245,7 @@ function SavingsGoals() {
             <Target size={24} />
           </div>
           <div className="stat-info">
-            <h3>{goals.length}</h3>
+            <h3>{goalStats?.activeGoals || 0}</h3>
             <p>Metas activas</p>
           </div>
         </div>
@@ -197,14 +301,26 @@ function SavingsGoals() {
         <div className="section-header">
           <h2>Mis Metas</h2>
         </div>
-        <div className="goals-grid">
-          {goals.length > 0 ? (
-            goals.map(goal => {
-              const current = parseFloat(goal.current || goal.current_amount) || 0
-              const target = parseFloat(goal.target || goal.target_amount) || 1
-              const progress = getProgressPercentage(current, target)
+        
+        {goals.length === 0 ? (
+          <div className="no-goals">
+            <Target size={48} />
+            <h3>No tienes metas de ahorro</h3>
+            <p>Crea tu primera meta para comenzar a ahorrar</p>
+            <button 
+              className="btn btn-primary"
+              onClick={() => setShowNewGoal(true)}
+            >
+              <Plus size={16} />
+              Crear Primera Meta
+            </button>
+          </div>
+        ) : (
+          <div className="goals-grid">
+            {goals.map(goal => {
+              const progress = getProgressPercentage(goal.current_amount, goal.target_amount)
               const daysLeft = getDaysLeft(goal.deadline)
-              const isCompleted = current >= target
+              const isCompleted = goal.isCompleted || parseFloat(goal.current_amount) >= parseFloat(goal.target_amount)
               
               return (
                 <div key={goal.id} className={`goal-card ${isCompleted ? 'completed' : ''}`}>
@@ -213,123 +329,169 @@ function SavingsGoals() {
                       <h3>{goal.name}</h3>
                       <span className="goal-category">{goal.category}</span>
                     </div>
-                    {isCompleted && (
-                      <div className="completion-badge">
-                        <Trophy size={20} />
-                      </div>
-                    )}
+                    <div className="goal-status">
+                      {isCompleted ? (
+                        <CheckCircle className="status-icon completed" size={20} />
+                      ) : (
+                        <Clock className="status-icon active" size={20} />
+                      )}
+                    </div>
+                  </div>
+
+                  {goal.description && (
+                    <p className="goal-description">{goal.description}</p>
+                  )}
+
+                  <div className="goal-amount">
+                    <div className="amount-display">
+                      <span className="current">{formatCurrency(goal.current_amount)}</span>
+                      <span className="separator">de</span>
+                      <span className="target">{formatCurrency(goal.target_amount)}</span>
+                    </div>
+                    <div className="progress-percentage">{Math.round(progress)}%</div>
                   </div>
 
                   <div className="goal-progress">
-                    <div className="progress-amounts">
-                      <span className="current">${formatCurrency(current)}</span>
-                      <span className="target">de ${formatCurrency(target)}</span>
-                    </div>
-                    <div className="progress-bar-container">
-                      <div className="progress-bar">
-                        <div 
-                          className="progress-fill"
-                          style={{ width: `${progress}%` }}
-                        ></div>
-                      </div>
-                      <span className="progress-percentage">{progress.toFixed(0)}%</span>
-                    </div>
+                    <div 
+                      className="progress-bar"
+                      style={{ 
+                        background: `linear-gradient(to right, var(--primary-color) ${progress}%, var(--background-secondary) ${progress}%)`
+                      }}
+                    ></div>
                   </div>
 
                   <div className="goal-footer">
-                    <div className="deadline">
+                    <div className="goal-deadline">
                       <Calendar size={16} />
-                      <span>{daysLeft} días restantes</span>
+                      <span>
+                        {daysLeft > 0 ? `${daysLeft} días restantes` : 'Vencida'}
+                      </span>
                     </div>
+                    
                     {!isCompleted && (
                       <button 
-                        className="btn btn-sm btn-primary"
-                        onClick={() => {
-                          // Aquí puedes agregar lógica para actualizar el progreso
-                          console.log('Agregar fondos a:', goal.name)
-                        }}
+                        className="btn-add-funds"
+                        onClick={() => setShowAddFunds(goal.id)}
                       >
+                        <Plus size={14} />
                         Agregar Fondos
                       </button>
+                    )}
+
+                    {isCompleted && (
+                      <div className="completion-message">
+                        <Star size={16} />
+                        <span>¡Meta completada! 🎉</span>
+                      </div>
                     )}
                   </div>
                 </div>
               )
-            })
-          ) : (
-            <div className="no-goals">
-              <p>No hay metas creadas aún</p>
-              <button 
-                className="btn btn-primary"
-                onClick={() => setShowNewGoal(true)}
-              >
-                Crear primera meta
-              </button>
-            </div>
-          )}
-        </div>
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Modal Nueva Meta */}
+      {/* Modal para nueva meta */}
       {showNewGoal && (
         <div className="modal-overlay" onClick={() => setShowNewGoal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Nueva Meta de Ahorro</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Nueva Meta de Ahorro</h2>
+              <button 
+                className="close-btn"
+                onClick={() => setShowNewGoal(false)}
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleCreateGoal} className="goal-form">
+              <div className="input-group">
                 <label htmlFor="goalName">Nombre de la meta</label>
                 <input
                   id="goalName"
                   type="text"
                   value={newGoal.name}
                   onChange={(e) => setNewGoal({...newGoal, name: e.target.value})}
-                  placeholder="Ej: Viaje a Europa"
+                  placeholder="Ej: Vacaciones de verano"
                   required
                 />
               </div>
 
-              <div className="form-group">
-                <label htmlFor="goalTarget">Monto objetivo ($)</label>
+              <div className="input-group">
+                <label htmlFor="goalDescription">Descripción (opcional)</label>
+                <textarea
+                  id="goalDescription"
+                  value={newGoal.description}
+                  onChange={(e) => setNewGoal({...newGoal, description: e.target.value})}
+                  placeholder="Describe tu meta..."
+                  rows="3"
+                />
+              </div>
+
+              <div className="input-group">
+                <label htmlFor="goalTarget">Cantidad objetivo</label>
                 <input
                   id="goalTarget"
                   type="number"
-                  value={newGoal.target}
-                  onChange={(e) => setNewGoal({...newGoal, target: e.target.value})}
-                  placeholder="0.00"
+                  value={newGoal.target_amount}
+                  onChange={(e) => setNewGoal({...newGoal, target_amount: e.target.value})}
+                  placeholder="5000"
+                  min="0.01"
                   step="0.01"
-                  min="0"
                   required
                 />
               </div>
 
-              <div className="form-group">
+              <div className="input-group">
                 <label htmlFor="goalDeadline">Fecha límite</label>
                 <input
                   id="goalDeadline"
                   type="date"
                   value={newGoal.deadline}
                   onChange={(e) => setNewGoal({...newGoal, deadline: e.target.value})}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={moment().format('YYYY-MM-DD')}
                   required
                 />
               </div>
 
-              <div className="form-group">
-                <label htmlFor="goalCategory">Categoría</label>
-                <select
-                  id="goalCategory"
-                  value={newGoal.category}
-                  onChange={(e) => setNewGoal({...newGoal, category: e.target.value})}
-                >
-                  <option value="Ahorro">Ahorro General</option>
-                  <option value="Viajes">Viajes</option>
-                  <option value="Emergencia">Fondo de Emergencia</option>
-                  <option value="Compras">Compras Grandes</option>
-                  <option value="Educación">Educación</option>
-                </select>
+              <div className="input-row">
+                <div className="input-group">
+                  <label htmlFor="goalCategory">Categoría</label>
+                  <select
+                    id="goalCategory"
+                    value={newGoal.category}
+                    onChange={(e) => setNewGoal({...newGoal, category: e.target.value})}
+                    required
+                  >
+                    <option value="Ahorro">Ahorro</option>
+                    <option value="Viajes">Viajes</option>
+                    <option value="Tecnología">Tecnología</option>
+                    <option value="Educación">Educación</option>
+                    <option value="Salud">Salud</option>
+                    <option value="Casa">Casa</option>
+                    <option value="Emergencia">Emergencia</option>
+                    <option value="Otros">Otros</option>
+                  </select>
+                </div>
+
+                <div className="input-group">
+                  <label htmlFor="goalPriority">Prioridad</label>
+                  <select
+                    id="goalPriority"
+                    value={newGoal.priority}
+                    onChange={(e) => setNewGoal({...newGoal, priority: e.target.value})}
+                  >
+                    <option value="1">Baja</option>
+                    <option value="2">Media-Baja</option>
+                    <option value="3">Media</option>
+                    <option value="4">Media-Alta</option>
+                    <option value="5">Alta</option>
+                  </select>
+                </div>
               </div>
 
-              <div className="modal-actions">
+              <div className="form-actions">
                 <button 
                   type="button" 
                   className="btn btn-secondary"
@@ -342,6 +504,72 @@ function SavingsGoals() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para agregar fondos */}
+      {showAddFunds && (
+        <div className="modal-overlay" onClick={() => setShowAddFunds(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Agregar Fondos</h2>
+              <button 
+                className="close-btn"
+                onClick={() => setShowAddFunds(null)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="add-funds-content">
+              <div className="current-goal-info">
+                {(() => {
+                  const goal = goals.find(g => g.id === showAddFunds)
+                  return goal ? (
+                    <div>
+                      <h3>{goal.name}</h3>
+                      <p>Progreso actual: {formatCurrency(goal.current_amount)} de {formatCurrency(goal.target_amount)}</p>
+                      <p>Faltan: {formatCurrency(parseFloat(goal.target_amount) - parseFloat(goal.current_amount))}</p>
+                    </div>
+                  ) : null
+                })()}
+              </div>
+              
+              <div className="input-group">
+                <label htmlFor="addAmount">Cantidad a agregar</label>
+                <input
+                  id="addAmount"
+                  type="number"
+                  value={addAmount}
+                  onChange={(e) => setAddAmount(e.target.value)}
+                  placeholder="100.00"
+                  min="0.01"
+                  step="0.01"
+                  required
+                />
+              </div>
+
+              <div className="form-actions">
+                <button 
+                  type="button" 
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowAddFunds(null)
+                    setAddAmount('')
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-primary"
+                  onClick={() => handleAddFunds(showAddFunds)}
+                >
+                  <Plus size={16} />
+                  Agregar Fondos
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

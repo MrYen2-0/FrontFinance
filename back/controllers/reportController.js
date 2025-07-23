@@ -4,260 +4,402 @@ const { Op } = require('sequelize');
 const moment = require('moment');
 const sequelize = require('../config/database');
 
-// Obtener datos del dashboard
+// Obtener dashboard data (resumen para pantalla principal)
 const getDashboardData = async (req, res) => {
   try {
     const userId = req.user.id;
-    const currentMonth = moment().month() + 1;
-    const currentYear = moment().year();
-    
-    // Obtener resumen de transacciones del mes actual
-    const monthStart = moment().startOf('month').toDate();
-    const monthEnd = moment().endOf('month').toDate();
-    
-    const monthTransactions = await Transaction.findAll({
+    const currentMonth = moment().startOf('month');
+    const currentMonthEnd = moment().endOf('month');
+
+    // Transacciones del mes actual
+    const monthlyTransactions = await Transaction.findAll({
       where: {
         user_id: userId,
         date: {
-          [Op.between]: [monthStart, monthEnd]
+          [Op.between]: [currentMonth.format('YYYY-MM-DD'), currentMonthEnd.format('YYYY-MM-DD')]
         }
-      }
+      },
+      order: [['date', 'DESC']],
+      limit: 10
     });
-    
-    // Calcular totales
-    let totalIncome = 0;
-    let totalExpenses = 0;
-    const categoryTotals = {};
-    
-    monthTransactions.forEach(t => {
-      const amount = parseFloat(t.amount);
-      if (t.type === 'income') {
-        totalIncome += amount;
-      } else {
-        totalExpenses += amount;
-        categoryTotals[t.category] = (categoryTotals[t.category] || 0) + amount;
-      }
-    });
-    
-    // Obtener presupuestos del mes
+
+    // Presupuestos del mes con gastos reales
     const budgets = await Budget.findAll({
       where: {
         user_id: userId,
-        month: currentMonth,
-        year: currentYear
+        month: moment().month() + 1,
+        year: moment().year(),
+        is_active: true
       }
     });
-    
-    // Obtener metas activas
+
+    // Calcular gastos reales para cada presupuesto
+    const budgetsWithSpending = await Promise.all(
+      budgets.map(async (budget) => {
+        const actualSpending = await Transaction.sum('amount', {
+          where: {
+            user_id: userId,
+            category: budget.category,
+            type: 'expense',
+            date: {
+              [Op.between]: [currentMonth.format('YYYY-MM-DD'), currentMonthEnd.format('YYYY-MM-DD')]
+            }
+          }
+        });
+
+        const spent = actualSpending || 0;
+        const planned = parseFloat(budget.planned_amount);
+        const remaining = Math.max(planned - spent, 0);
+
+        return {
+          id: budget.id,
+          category: budget.category,
+          planned,
+          spent,
+          remaining,
+          percentage: planned > 0 ? Math.round((spent / planned) * 100) : 0
+        };
+      })
+    );
+
+    // Metas activas
     const goals = await Goal.findAll({
       where: {
         user_id: userId,
-        is_completed: false
-      }
+        status: 'active'
+      },
+      order: [['deadline', 'ASC']],
+      limit: 5
     });
-    
-    // Calcular estadísticas de metas
-    const totalGoals = goals.length;
+
+    // Calcular estadísticas del mes
+    const totalIncome = monthlyTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+    const totalExpenses = monthlyTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+    // Estadísticas generales
     const completedGoals = await Goal.count({
-      where: {
-        user_id: userId,
-        is_completed: true
-      }
+      where: { user_id: userId, status: 'completed' }
     });
-    
-    const goalProgress = goals.map(g => ({
-      id: g.id,
-      name: g.name,
-      progress: (parseFloat(g.current_amount) / parseFloat(g.target_amount)) * 100,
-      daysLeft: moment(g.deadline).diff(moment(), 'days')
-    }));
-    
-    // Tendencia de gastos (últimos 7 días) - Simplificado
-    const weeklyTrend = [];
-    for (let i = 6; i >= 0; i--) {
-      const date = moment().subtract(i, 'days');
-      const dayTransactions = monthTransactions.filter(t => 
-        moment(t.date).isSame(date, 'day') && t.type === 'expense'
-      );
-      
-      const dayTotal = dayTransactions.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-      weeklyTrend.push({
-        day: date.format('YYYY-MM-DD'),
-        total: dayTotal
-      });
-    }
-    
+
+    const totalGoals = await Goal.count({
+      where: { user_id: userId }
+    });
+
+    const totalSaved = await Goal.sum('current_amount', {
+      where: { user_id: userId }
+    }) || 0;
+
+    // Respuesta estructurada
     res.json({
-      summary: {
-        totalIncome,
-        totalExpenses,
-        balance: totalIncome - totalExpenses,
-        savingsRate: totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0
+      stats: {
+        totalIncome: Math.round(totalIncome),
+        totalExpenses: Math.round(totalExpenses),
+        balance: Math.round(totalIncome - totalExpenses),
+        completedGoals,
+        totalGoals,
+        totalSaved: Math.round(totalSaved)
       },
-      categoryBreakdown: Object.entries(categoryTotals).map(([category, amount]) => ({
-        category,
-        amount,
-        percentage: totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0
+      recentTransactions: monthlyTransactions.slice(0, 5).map(t => ({
+        id: t.id,
+        type: t.type,
+        category: t.category,
+        amount: parseFloat(t.amount),
+        description: t.description,
+        date: t.date
       })),
-      budgetStatus: budgets.map(b => ({
-        category: b.category,
-        planned: parseFloat(b.planned_amount),
-        spent: parseFloat(b.spent_amount || 0),
-        percentage: parseFloat(b.planned_amount) > 0 ? 
-          (parseFloat(b.spent_amount || 0) / parseFloat(b.planned_amount)) * 100 : 0
-      })),
-      goalsOverview: {
-        total: totalGoals,
-        completed: completedGoals,
-        inProgress: totalGoals,
-        topGoals: goalProgress.sort((a, b) => b.progress - a.progress).slice(0, 3)
-      },
-      weeklyTrend,
-      lastUpdated: new Date()
+      budgets: budgetsWithSpending.slice(0, 3),
+      goals: goals.map(goal => ({
+        id: goal.id,
+        name: goal.name,
+        target: parseFloat(goal.target_amount),
+        current: parseFloat(goal.current_amount),
+        progress: Math.round((parseFloat(goal.current_amount) / parseFloat(goal.target_amount)) * 100),
+        deadline: goal.deadline,
+        category: goal.category
+      }))
     });
+
   } catch (error) {
-    console.error('Error en dashboard:', error);
+    console.error('Error al obtener datos del dashboard:', error);
     res.status(500).json({ 
-      message: 'Error al cargar dashboard',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Error interno del servidor',
+      error: error.message 
     });
   }
 };
 
 // Obtener datos para reportes
+// Obtener datos para reportes visuales
 const getReportData = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { startDate, endDate, groupBy = 'month' } = req.query;
+    const { period = 'month', startDate, endDate } = req.query;
+
+    console.log('Generando reporte para usuario:', userId, 'período:', period);
+
+    let dateRange = {};
     
-    const start = startDate ? moment(startDate).toDate() : moment().subtract(6, 'months').toDate();
-    const end = endDate ? moment(endDate).toDate() : moment().toDate();
-    
-    // Obtener todas las transacciones del período
+    // Definir rango de fechas basado en el período
+    switch (period) {
+      case 'week':
+        dateRange = {
+          start: moment().startOf('week'),
+          end: moment().endOf('week')
+        };
+        break;
+      case 'month':
+        dateRange = {
+          start: moment().startOf('month'),
+          end: moment().endOf('month')
+        };
+        break;
+      case '3months':
+        dateRange = {
+          start: moment().subtract(3, 'months').startOf('month'),
+          end: moment().endOf('month')
+        };
+        break;
+      case '6months':
+        dateRange = {
+          start: moment().subtract(6, 'months').startOf('month'),
+          end: moment().endOf('month')
+        };
+        break;
+      case 'year':
+        dateRange = {
+          start: moment().startOf('year'),
+          end: moment().endOf('year')
+        };
+        break;
+      case 'custom':
+        if (startDate && endDate) {
+          dateRange = {
+            start: moment(startDate),
+            end: moment(endDate)
+          };
+        } else {
+          return res.status(400).json({ message: 'Fechas de inicio y fin requeridas para período personalizado' });
+        }
+        break;
+      default:
+        dateRange = {
+          start: moment().startOf('month'),
+          end: moment().endOf('month')
+        };
+    }
+
+    // Obtener transacciones del período
     const transactions = await Transaction.findAll({
       where: {
         user_id: userId,
-        date: { [Op.between]: [start, end] }
+        date: {
+          [Op.between]: [dateRange.start.format('YYYY-MM-DD'), dateRange.end.format('YYYY-MM-DD')]
+        }
       },
-      order: [['date', 'DESC']]
+      order: [['date', 'ASC']]
     });
-    
-    // Agrupar datos según el parámetro
-    const groupedData = {};
-    const categoryData = {};
-    
-    transactions.forEach(t => {
-      // Agrupar por período
-      let periodKey;
-      switch (groupBy) {
-        case 'day':
-          periodKey = moment(t.date).format('YYYY-MM-DD');
-          break;
-        case 'week':
-          periodKey = moment(t.date).format('YYYY-WW');
-          break;
-        case 'year':
-          periodKey = moment(t.date).format('YYYY');
-          break;
-        default: // month
-          periodKey = moment(t.date).format('YYYY-MM');
-      }
-      
-      if (!groupedData[periodKey]) {
-        groupedData[periodKey] = {
-          income: 0,
-          expenses: 0,
-          transactions: []
-        };
-      }
-      
-      const amount = parseFloat(t.amount);
-      if (t.type === 'income') {
-        groupedData[periodKey].income += amount;
+
+    console.log('Transacciones encontradas:', transactions.length);
+
+    // Si no hay transacciones, crear datos de ejemplo
+    if (transactions.length === 0) {
+      return res.json({
+        summary: {
+          totalIngresos: 0,
+          totalGastado: 0,
+          balance: 0,
+          categoriaTop: 'Sin datos',
+          promedioSemanal: 0,
+          transactionCount: 0
+        },
+        gastosDelMes: [],
+        distribucionGastos: [],
+        ultimos6Meses: [],
+        dineroDelMes: [],
+        recentTransactions: [],
+        budgetComparison: []
+      });
+    }
+
+    // 1. Gastos por categoría
+    const expensesByCategory = {};
+    const incomeByCategory = {};
+
+    transactions.forEach(transaction => {
+      const amount = parseFloat(transaction.amount);
+      const category = transaction.category;
+
+      if (transaction.type === 'expense') {
+        expensesByCategory[category] = (expensesByCategory[category] || 0) + amount;
       } else {
-        groupedData[periodKey].expenses += amount;
-      }
-      groupedData[periodKey].transactions.push(t);
-      
-      // Agrupar por categoría
-      if (!categoryData[t.category]) {
-        categoryData[t.category] = {
-          total: 0,
-          income: 0,
-          expenses: 0,
-          count: 0
-        };
-      }
-      
-      categoryData[t.category].total += amount;
-      categoryData[t.category].count += 1;
-      if (t.type === 'income') {
-        categoryData[t.category].income += amount;
-      } else {
-        categoryData[t.category].expenses += amount;
+        incomeByCategory[category] = (incomeByCategory[category] || 0) + amount;
       }
     });
-    
-    // Convertir a arrays y calcular estadísticas
-    const timeSeriesData = Object.entries(groupedData).map(([period, data]) => ({
-      period,
-      income: data.income,
-      expenses: data.expenses,
-      profit: data.income - data.expenses,
-      transactionCount: data.transactions.length
-    })).sort((a, b) => a.period.localeCompare(b.period));
-    
-    const categoryAnalysis = Object.entries(categoryData).map(([category, data]) => ({
-      category,
-      total: data.total,
-      income: data.income,
-      expenses: data.expenses,
-      count: data.count,
-      average: data.total / data.count
-    })).sort((a, b) => b.total - a.total);
-    
-    // Calcular estadísticas generales
+
+    // 2. Datos mensuales para gráficas de tendencia
+    const monthlyData = {};
+    transactions.forEach(transaction => {
+      const monthKey = moment(transaction.date).format('YYYY-MM');
+      if (!monthlyData[monthKey]) {
+        monthlyData[monthKey] = { income: 0, expenses: 0 };
+      }
+      
+      const amount = parseFloat(transaction.amount);
+      if (transaction.type === 'expense') {
+        monthlyData[monthKey].expenses += amount;
+      } else {
+        monthlyData[monthKey].income += amount;
+      }
+    });
+
+    // 3. Datos semanales para el mes actual
+    const weeklyData = {};
+    const currentMonthTransactions = transactions.filter(t => 
+      moment(t.date).isSame(moment(), 'month')
+    );
+
+    // Agrupar por semanas del mes
+    const weeksInMonth = Math.ceil(moment().daysInMonth() / 7);
+    for (let week = 1; week <= weeksInMonth; week++) {
+      weeklyData[`Semana ${week}`] = { expenses: 0, income: 0, presupuesto: 300 }; // Presupuesto ejemplo
+    }
+
+    currentMonthTransactions.forEach(transaction => {
+      const dayOfMonth = moment(transaction.date).date();
+      const weekNumber = Math.ceil(dayOfMonth / 7);
+      const weekKey = `Semana ${weekNumber}`;
+      
+      const amount = parseFloat(transaction.amount);
+      if (transaction.type === 'expense') {
+        weeklyData[weekKey].expenses += amount;
+      } else {
+        weeklyData[weekKey].income += amount;
+      }
+    });
+
+    // 4. Calcular totales
     const totalIncome = transactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    
+
     const totalExpenses = transactions
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+    // 5. Obtener presupuestos para comparación
+    const currentMonth = moment().month() + 1;
+    const currentYear = moment().year();
     
-    res.json({
-      summary: {
-        totalIncome,
-        totalExpenses,
-        netProfit: totalIncome - totalExpenses,
-        averageTransaction: transactions.length > 0 ? 
-          (totalIncome + totalExpenses) / transactions.length : 0,
-        transactionCount: transactions.length
-      },
-      timeSeriesData,
-      categoryAnalysis,
-      topTransactions: transactions
-        .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))
-        .slice(0, 10)
+    const budgets = await Budget.findAll({
+      where: {
+        user_id: userId,
+        month: currentMonth,
+        year: currentYear,
+        is_active: true
+      }
+    });
+
+    const budgetByCategory = {};
+    budgets.forEach(budget => {
+      budgetByCategory[budget.category] = parseFloat(budget.planned_amount);
+    });
+
+    // 6. Formatear datos para el frontend
+    const formattedData = {
+      // Gastos por categoría (para gráfica de barras)
+      gastosDelMes: Object.entries(expensesByCategory)
+        .map(([categoria, cantidad]) => ({
+          categoria,
+          cantidad: Math.round(cantidad),
+          transacciones: transactions.filter(t => t.category === categoria && t.type === 'expense').length
+        }))
+        .sort((a, b) => b.cantidad - a.cantidad),
+
+      // Distribución de gastos (para gráfica de pastel)
+      distribucionGastos: Object.entries(expensesByCategory)
+        .map(([name, value]) => ({
+          name,
+          value: Math.round(value),
+          percentage: Math.round((value / totalExpenses) * 100) || 0
+        }))
+        .sort((a, b) => b.value - a.value),
+
+      // Datos de los últimos 6 meses
+      ultimos6Meses: Object.entries(monthlyData)
+        .map(([mes, data]) => ({
+          mes: moment(mes, 'YYYY-MM').format('MMM'),
+          gastos: Math.round(data.expenses),
+          ingresos: Math.round(data.income)
+        }))
+        .sort((a, b) => moment(a.mes, 'MMM').month() - moment(b.mes, 'MMM').month())
+        .slice(-6),
+
+      // Gastos semanales del mes actual
+      dineroDelMes: Object.entries(weeklyData)
+        .map(([semana, data]) => ({
+          semana,
+          gaste: Math.round(data.expenses),
+          presupuesto: data.presupuesto,
+          ingresos: Math.round(data.income)
+        })),
+
+      // Transacciones recientes
+      recentTransactions: transactions
+        .slice(-10)
+        .reverse()
         .map(t => ({
           id: t.id,
           date: t.date,
-          category: t.category,
           description: t.description,
-          amount: parseFloat(t.amount),
-          type: t.type
+          category: t.category,
+          type: t.type,
+          amount: parseFloat(t.amount)
         })),
-      period: {
-        start,
-        end,
-        groupBy
-      }
+
+      // Resumen general
+      summary: {
+        totalIngresos: Math.round(totalIncome),
+        totalGastado: Math.round(totalExpenses),
+        balance: Math.round(totalIncome - totalExpenses),
+        categoriaTop: Object.keys(expensesByCategory).length > 0 ? 
+          Object.entries(expensesByCategory).sort((a, b) => b[1] - a[1])[0][0] : 'Sin datos',
+        promedioSemanal: Math.round(totalExpenses / 4), // Aproximado
+        transactionCount: transactions.length,
+        period: {
+          start: dateRange.start.format('YYYY-MM-DD'),
+          end: dateRange.end.format('YYYY-MM-DD'),
+          type: period
+        }
+      },
+
+      // Comparación con presupuesto
+      budgetComparison: Object.entries(expensesByCategory).map(([categoria, gastado]) => ({
+        categoria,
+        gastado: Math.round(gastado),
+        presupuestado: Math.round(budgetByCategory[categoria] || 0),
+        diferencia: Math.round((budgetByCategory[categoria] || 0) - gastado),
+        porcentajeUsado: budgetByCategory[categoria] ? 
+          Math.round((gastado / budgetByCategory[categoria]) * 100) : 0
+      }))
+    };
+
+    console.log('Datos formateados enviados:', {
+      gastosDelMes: formattedData.gastosDelMes.length,
+      totalGastado: formattedData.summary.totalGastado,
+      totalIngresos: formattedData.summary.totalIngresos
     });
+
+    res.json(formattedData);
   } catch (error) {
-    console.error('Error en reportes:', error);
+    console.error('Error al generar reporte:', error);
     res.status(500).json({ 
-      message: 'Error al generar reporte',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Error interno del servidor',
+      error: error.message 
     });
   }
 };

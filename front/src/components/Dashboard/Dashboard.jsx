@@ -5,9 +5,18 @@ import DynamicBudget from '../Budget/DynamicBudget'
 import VisualReports from '../Reports/VisualReports'
 import SavingsGoals from '../Goals/SavingsGoals'
 import DashboardHome from './DashboardHome'
+import QuickTransactionPanel from '../Transactions/QuickTransactionPanel'
+import { useApp } from '../../context/AppContext'
 import './Dashboard.css'
 
 function Dashboard() {
+  const { loadUserData } = useApp()
+
+  const handleTransactionAdded = async () => {
+    // Recargar todos los datos cuando se agrega una transacción
+    await loadUserData()
+  }
+
   return (
     <div className="dashboard">
       <Sidebar />
@@ -19,6 +28,9 @@ function Dashboard() {
           <Route path="/reports" element={<VisualReports />} />
           <Route path="/goals" element={<SavingsGoals />} />
         </Routes>
+        
+        {/* Panel de transacciones rápidas mejorado */}
+        <QuickTransactionPanel onTransactionAdded={handleTransactionAdded} />
       </main>
     </div>
   )

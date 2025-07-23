@@ -503,4 +503,246 @@
   .xp-bar {
     width: 100%;
   }
+
+    .input-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .goal-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .btn-add-funds {
+    justify-content: center;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.loading-state, .error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+
+.loading-state .spinning {
+  animation: spin 1s linear infinite;
+  color: var(--primary-color);
+  margin-bottom: 16px;
+}
+
+.error-state h3 {
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+/* Sin metas */
+.no-goals {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+
+.no-goals svg {
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.no-goals h3 {
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+/* Botón agregar fondos */
+.btn-add-funds {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.3s ease;
+}
+
+.btn-add-funds:hover {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+}
+
+/* Modal agregar fondos */
+.add-funds-content {
+  padding: 20px;
+}
+
+.current-goal-info {
+  background: var(--background-secondary);
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+}
+
+.current-goal-info h3 {
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.current-goal-info p {
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  font-size: 0.9rem;
+}
+
+/* Mejoras en metas */
+.goal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.goal-info h3 {
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  font-size: 1.1rem;
+}
+
+.goal-category {
+  background: var(--background-secondary);
+  color: var(--text-secondary);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  border: 1px solid var(--border);
+}
+
+.goal-status .status-icon {
+  color: var(--primary-color);
+}
+
+.goal-status .status-icon.completed {
+  color: var(--success);
+}
+
+.goal-description {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+.goal-amount {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.amount-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.amount-display .current {
+  color: var(--primary-color);
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.amount-display .separator {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.amount-display .target {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.progress-percentage {
+  color: var(--primary-color);
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.goal-progress {
+  margin-bottom: 16px;
+}
+
+.goal-progress .progress-bar {
+  height: 8px;
+  background: var(--background-secondary);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.goal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.goal-deadline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Formularios */
+.input-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.goal-form textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  font-size: 16px;
+  font-family: inherit;
+  background-color: var(--input-bg);
+  color: var(--text-primary);
+  resize: vertical;
+  min-height: 80px;
+}
+
+.goal-form textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
 }
