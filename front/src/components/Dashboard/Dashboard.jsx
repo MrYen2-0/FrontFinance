@@ -6,6 +6,7 @@ import VisualReports from '../Reports/VisualReports'
 import SavingsGoals from '../Goals/SavingsGoals'
 import DashboardHome from './DashboardHome'
 import QuickTransactionPanel from '../Transactions/QuickTransactionPanel'
+import SmartTransactionPanel from '../Transactions/SmartTransactionPanel'
 import { useApp } from '../../context/AppContext'
 import './Dashboard.css'
 
@@ -30,7 +31,7 @@ function Dashboard() {
         </Routes>
         
         {/* Panel de transacciones rápidas mejorado */}
-        <QuickTransactionPanel onTransactionAdded={handleTransactionAdded} />
+      <SmartTransactionPanel onTransactionAdded={handleTransactionAdded} />
       </main>
     </div>
   )
