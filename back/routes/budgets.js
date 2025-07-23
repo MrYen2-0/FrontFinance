@@ -3,6 +3,9 @@ const { body } = require('express-validator');
 const {
   getBudgets,
   upsertBudget,
+  upsertBudgetByPercentage,  // AGREGAR
+  setMonthlyBudget,          // AGREGAR  
+  getMonthlyBudget,          // AGREGAR
   getAdjustmentSuggestions,
   deleteBudget
 } = require('../controllers/budgetController');
@@ -26,5 +29,8 @@ router.get('/', getBudgets);
 router.post('/', budgetValidation, upsertBudget);
 router.get('/suggestions', getAdjustmentSuggestions);
 router.delete('/:id', deleteBudget);
+router.post('/monthly', auth, setMonthlyBudget);
+router.get('/monthly', auth, getMonthlyBudget);
+router.post('/category-percentage', auth, upsertBudgetByPercentage);
 
 module.exports = router;

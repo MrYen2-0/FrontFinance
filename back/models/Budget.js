@@ -48,7 +48,15 @@ const Budget = sequelize.define('Budget', {
   is_active: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+  percentage: {
+  type: DataTypes.DECIMAL(5, 2),
+  allowNull: true,
+  validate: {
+    min: 0,
+    max: 100
   }
+}
 }, {
   tableName: 'budgets',
   indexes: [

@@ -1,4 +1,4 @@
-const { Budget, Transaction } = require('../models');
+const { Budget, Transaction, MonthlyBudget } = require('../models');
 const { validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const moment = require('moment');
@@ -195,9 +195,138 @@ const deleteBudget = async (req, res) => {
   }
 };
 
+// Establecer presupuesto total mensual
+const setMonthlyBudget = async (req, res) => {
+  try {
+    const { total_amount, month, year } = req.body;
+    const currentMonth = month || moment().month() + 1;
+    const currentYear = year || moment().year();
+
+    const [monthlyBudget, created] = await MonthlyBudget.findOrCreate({
+      where: {
+        user_id: req.user.id,
+        month: currentMonth,
+        year: currentYear
+      },
+      defaults: { total_amount }
+    });
+
+    if (!created) {
+      monthlyBudget.total_amount = total_amount;
+      await monthlyBudget.save();
+    }
+
+    // Actualizar montos de categorías existentes que tienen porcentaje
+    const budgets = await Budget.findAll({
+      where: {
+        user_id: req.user.id,
+        month: currentMonth,
+        year: currentYear,
+        percentage: { [Op.not]: null }
+      }
+    });
+
+    for (const budget of budgets) {
+      budget.planned_amount = (parseFloat(budget.percentage) / 100) * parseFloat(total_amount);
+      await budget.save();
+    }
+
+    res.json({ 
+      message: 'Presupuesto mensual establecido',
+      monthlyBudget 
+    });
+  } catch (error) {
+    console.error('Error al establecer presupuesto mensual:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+// Crear presupuesto por porcentaje
+const upsertBudgetByPercentage = async (req, res) => {
+  try {
+    const { category, percentage, month, year } = req.body;
+    const currentMonth = month || moment().month() + 1;
+    const currentYear = year || moment().year();
+
+    // Obtener presupuesto total del mes
+    const monthlyBudget = await MonthlyBudget.findOne({
+      where: {
+        user_id: req.user.id,
+        month: currentMonth,
+        year: currentYear
+      }
+    });
+
+    if (!monthlyBudget) {
+      return res.status(400).json({ 
+        message: 'Debe establecer un presupuesto total mensual primero' 
+      });
+    }
+
+    // Calcular monto basado en porcentaje
+    const planned_amount = (parseFloat(percentage) / 100) * parseFloat(monthlyBudget.total_amount);
+
+    const [budget, created] = await Budget.findOrCreate({
+      where: {
+        user_id: req.user.id,
+        category,
+        month: currentMonth,
+        year: currentYear
+      },
+      defaults: {
+        planned_amount,
+        percentage,
+        spent_amount: 0
+      }
+    });
+
+    if (!created) {
+      budget.percentage = percentage;
+      budget.planned_amount = planned_amount;
+      await budget.save();
+    }
+
+    res.status(created ? 201 : 200).json({
+      message: 'Presupuesto actualizado exitosamente',
+      budget: {
+        ...budget.toJSON(),
+        calculated_amount: planned_amount
+      }
+    });
+  } catch (error) {
+    console.error('Error al guardar presupuesto por porcentaje:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+// Obtener presupuesto total mensual
+const getMonthlyBudget = async (req, res) => {
+  try {
+    const { month, year } = req.query;
+    const currentMonth = month || moment().month() + 1;
+    const currentYear = year || moment().year();
+
+    const monthlyBudget = await MonthlyBudget.findOne({
+      where: {
+        user_id: req.user.id,
+        month: currentMonth,
+        year: currentYear
+      }
+    });
+
+    res.json({ monthlyBudget });
+  } catch (error) {
+    console.error('Error al obtener presupuesto mensual:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
 module.exports = {
   getBudgets,
   upsertBudget,
+  upsertBudgetByPercentage,
+  setMonthlyBudget,
+  getMonthlyBudget,
   getAdjustmentSuggestions,
   deleteBudget
 };
